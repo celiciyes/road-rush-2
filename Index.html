@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Road Rush</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; display:flex; justify-content:center; align-items:center;
+  background:radial-gradient(circle at 50% 20%,#19304a 0,#070b12 45%,#020308 100%);
+  font-family:Arial,sans-serif; color:white; overflow:hidden;
+}
+.game-wrap{display:flex; gap:18px; align-items:center; flex-wrap:wrap; justify-content:center}
+.panel{
+  width:min(94vw,430px); height:min(86vh,680px); min-height:560px;
+  position:relative; overflow:hidden; border:4px solid #fff; border-radius:24px;
+  box-shadow:0 0 25px #00e5ff,0 0 70px #0077ff55;
+  background:#111;
+}
+.road{
+  position:absolute; inset:0; background-image:url("road bg.png");
+  background-size:100% 100%; animation:roadMove .8s linear infinite;
+}
+@keyframes roadMove{to{background-position:0 100%}}
+.overlay{position:absolute;inset:0;pointer-events:none}
+.hud{
+  position:absolute; z-index:20; top:12px; left:12px; right:12px;
+  display:flex; justify-content:space-between; gap:8px;
+}
+.badge{
+  padding:9px 13px; border-radius:14px; background:#06111dcc;
+  border:1px solid #5cecff88; box-shadow:0 0 12px #00d9ff33;
+  font-weight:800; font-size:17px;
+}
+.car,.enemy{
+  position:absolute; z-index:10; width:62px; height:92px;
+  background-size:100% 100%; background-repeat:no-repeat;
+  filter:drop-shadow(0 8px 6px #000b);
+}
+.car{background-image:url("car.png"); bottom:38px; left:calc(50% - 31px); transition:left .12s}
+.enemy{background-image:url("stonebg2.png"); width:46px;height:46px; border-radius:50%}
+.enemy.e1{animation:fall1 2.5s linear infinite; left:20%}
+.enemy.e2{animation:fall2 3.2s linear infinite .7s; left:48%}
+.enemy.e3{animation:fall3 2.1s linear infinite 1.1s; left:72%}
+.enemy.e4{animation:fall4 3.8s linear infinite 1.6s; left:34%; background-image:url("stonebg1.png")}
+@keyframes fall1{from{top:-70px}to{top:105%}}
+@keyframes fall2{from{top:-120px}to{top:105%}}
+@keyframes fall3{from{top:-220px}to{top:105%}}
+@keyframes fall4{from{top:-350px}to{top:105%}}
+.flash{animation:flash .18s linear 2}
+@keyframes flash{50%{filter:brightness(3)}}
+.start-screen,.game-over{
+  position:absolute; z-index:30; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center;
+  background:#020611c9; backdrop-filter:blur(5px); padding:25px;
+}
+.game-over{display:none}
+h1{font-size:42px;margin:0 0 8px;text-shadow:0 0 18px #00eaff}
+.subtitle{opacity:.8;margin:0 0 25px}
+button{
+  border:0; border-radius:16px; padding:14px 25px; font-size:20px;
+  font-weight:900; cursor:pointer; color:#041018;
+  background:linear-gradient(135deg,#6effff,#fff);
+  box-shadow:0 0 18px #00eaff88; transition:.15s;
+}
+button:hover{transform:scale(1.05)}
+.controls{display:flex; gap:14px; justify-content:center; margin-top:14px}
+.control{
+  width:110px;height:65px;font-size:30px; user-select:none; touch-action:manipulation;
+}
+.help{font-size:13px;opacity:.7;margin-top:15px}
+.side{
+  width:170px; text-align:center; padding:18px; border:1px solid #5cecff55;
+  border-radius:20px; background:#06101ccc; box-shadow:0 0 25px #00aaff22;
+}
+.side h2{margin:4px 0 10px;font-size:18px}.side p{font-size:13px;line-height:1.5;opacity:.75}
+@media(max-width:700px){.side{display:none}.panel{height:86vh;min-height:520px}}
+</style>
+</head>
+<body>
+<div class="game-wrap">
+  <div class="panel" id="panel">
+    <div class="road" id="road"></div>
+    <div class="overlay">
+      <div class="hud">
+        <div class="badge">🏆 <span id="score">0</span></div>
+        <div class="badge">⚡ <span id="speed">1.0x</span></div>
+      </div>
+
+      <div class="car" id="car"></div>
+      <div class="enemy e1"></div><div class="enemy e2"></div>
+      <div class="enemy e3"></div><div class="enemy e4"></div>
+
+      <div class="start-screen" id="start">
+        <h1>ROAD RUSH</h1>
+        <p class="subtitle">Dodge the obstacles • Survive as long as you can</p>
+        <button onclick="startGame()">START GAME</button>
+        <div class="help">← → or A / D to steer</div>
+      </div>
+
+      <div class="game-over" id="over">
+        <h1>GAME OVER</h1>
+        <p>Your score: <b id="finalScore">0</b></p>
+        <button onclick="startGame()">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="side">
+    <h2>🎮 CONTROLS</h2>
+    <p>Use <b>←</b> <b>→</b> or <b>A</b> <b>D</b> to move.</p>
+    <p>Every second you survive increases your score.</p>
+    <p>The road gets faster over time!</p>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="control" onclick="move(-1)">◀</button>
+  <button class="control" onclick="move(1)">▶</button>
+</div>
+
+<script>
+const panel=document.getElementById("panel");
+const car=document.getElementById("car");
+const road=document.getElementById("road");
+const start=document.getElementById("start");
+const over=document.getElementById("over");
+const scoreEl=document.getElementById("score");
+const finalScore=document.getElementById("finalScore");
+const speedEl=document.getElementById("speed");
+const enemies=[...document.querySelectorAll(".enemy")];
+
+let lane=1, score=0, running=false, speed=1, lastTime=0, raf=0;
+const lanes=[0.20,0.50,0.80];
+
+function setCar(){
+  const w=panel.clientWidth;
+  const x=lanes[lane]*w-31;
+  car.style.left=Math.max(8,Math.min(w-70,x))+"px";
+}
+function move(dir){
+  if(!running)return;
+  lane=Math.max(0,Math.min(2,lane+dir));
+  setCar();
+}
+function resetEnemies(){
+  enemies.forEach((e,i)=>{
+    e.style.animation='none';
+    e.offsetHeight;
+    e.style.animation=`fall${i+1} ${[2.5,3.2,2.1,3.8][i]/speed}s linear infinite ${i*.35}s`;
+  });
+}
+function startGame(){
+  score=0; speed=1; lane=1; running=true;
+  scoreEl.textContent="0"; speedEl.textContent="1.0x";
+  start.style.display="none"; over.style.display="none";
+  road.style.animationDuration=".8s";
+  enemies.forEach(e=>e.classList.remove("flash"));
+  setCar(); resetEnemies();
+  cancelAnimationFrame(raf);
+  lastTime=performance.now();
+  loop(lastTime);
+}
+function hit(a,b){
+  const A=a.getBoundingClientRect(),B=b.getBoundingClientRect();
+  return A.left<B.right-7 && A.right>B.left+7 && A.top<B.bottom-7 && A.bottom>B.top+7;
+}
+function loop(t){
+  if(!running)return;
+  const dt=(t-lastTime)/1000; lastTime=t;
+  score += dt*10*speed;
+  speed += dt*0.018;
+  scoreEl.textContent=Math.floor(score);
+  speedEl.textContent=speed.toFixed(1)+"x";
+  road.style.animationDuration=Math.max(.22,.8/speed)+"s";
+
+  for(const e of enemies){
+    if(hit(car,e)){ gameOver(); return; }
+  }
+  raf=requestAnimationFrame(loop);
+}
+function gameOver(){
+  running=false;
+  enemies.forEach(e=>e.style.animationPlayState="paused");
+  road.style.animationPlayState="paused";
+  car.classList.add("flash");
+  finalScore.textContent=Math.floor(score);
+  over.style.display="flex";
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a"){e.preventDefault();move(-1)}
+  if(e.key==="ArrowRight"||e.key.toLowerCase()==="d"){e.preventDefault();move(1)}
+  if(e.key===" " && !running)startGame();
+});
+window.addEventListener("resize",setCar);
+setCar();
+</script>
+</body>
+</html>
